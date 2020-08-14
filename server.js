@@ -1,10 +1,12 @@
 require('isomorphic-fetch');
 const dotenv = require('dotenv');
 const Koa = require('koa');
+const KoaRouter = require('koa-router');
 const next = require('next');
 const { default: createShopifyAuth } = require('@shopify/koa-shopify-auth');
 const { verifyRequest } = require('@shopify/koa-shopify-auth');
 const session = require('koa-session');
+const koabody = require('koa-body');
 
 dotenv.config();
 const { default: graphQLProxy } = require('@shopify/koa-shopify-graphql-proxy');
@@ -18,9 +20,48 @@ const handle = app.getRequestHandler();
 
 const { SHOPIFY_API_SECRET_KEY, SHOPIFY_API_KEY } = process.env;
 
-app.prepare().then(() => {
+const server = new Koa();
+const router = new KoaRouter();
 
-    const server = new Koa();
+var products = [];
+
+//Get Request
+router.get('/api/products', async (ctx) => {
+    try {
+        ctx.body =  {
+            status: 'success',
+            data: products
+        };
+    } catch (error) {
+        console.log(error)
+    }
+})
+
+router.post('/api/products', koabody(), async (ctx) => {
+    try {
+        const body = ctx.request.body;
+        await products.push(body);
+        ctx.body = "Item Added";
+    } catch (error) {
+        console.log(error)
+    }
+})
+
+router.delete('/api/products', koabody(), async (ctx) => {
+    try {
+        products = [];
+        ctx.body = "Items deleted";
+    } catch (error) {
+        console.log(error);
+    }
+})
+
+//for Koa Router Middleware
+server.use(router.allowedMethods());
+server.use(router.routes());
+
+
+app.prepare().then(() => {
 
     server.use(session({ secure: true, sameSite: 'none' }, server));
     server.keys = [SHOPIFY_API_SECRET_KEY];
@@ -64,3 +105,4 @@ app.prepare().then(() => {
         console.log(`> Ready on http://localhost:${port}`);
     });
 });
+
